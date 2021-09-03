@@ -1,0 +1,214 @@
+version: '3.8'
+services:
+  #######################################
+  # PHP application Docker container
+  #######################################
+  app:
+    container_name: "${name}_app"
+    restart: on-failure
+    build:
+      context: .
+      dockerfile: Dockerfile.development
+    links:
+      - maildev
+      #- mysql
+      - larapostgres
+      #- solr
+      #- elasticsearch
+      #- redis
+      #- memcached
+      #- ftp
+    ports:
+      - "${ngnix80port}:80"
+      - "${ngnix443port}:443"
+    volumes:
+      - ./mamias:/app
+      #- ./:/docker/
+    # cap and privileged needed for slowlog
+    environment:
+      - DB_CONNECTION=pgsql
+      - DB_HOST=larapostgres
+      - DB_PORT=5432
+      - DB_DATABASE=db_${name}
+      - DB_USERNAME=admin
+      - DB_PASSWORD=postgres
+    cap_add:
+      - SYS_PTRACE
+    privileged: true
+    env_file:
+      - etc/environment.yml
+      - etc/environment.development.yml
+    labels:
+      - "traefik.http.routers.${name}.rule=Host(`${name}.docker.localhost`)"
+
+
+
+
+  #######################################
+  # PostgreSQL server
+  #######################################
+  larapostgres:
+    container_name: "${name}_database"
+    restart: on-failure
+    image: kartoza/postgis:12.0
+    #  build:
+    #    context: docker/postgres/
+    #    dockerfile: Postgres-9.4.Dockerfile
+    #    dockerfile: Postgres-9.5.Dockerfile
+    ports:
+      - "${pg_port}:5432"
+    volumes:
+      - ${name}_postgres:/var/lib/postgresql/data
+    environment:
+      - ALLOW_IP_RANGE=0.0.0.0/0
+      - DB_HOST=127.0.0.1
+      - POSTGRES_USER=admin
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=db_${name}
+      - POSTGRES_MULTIPLE_EXTENSIONS=postgis
+      - DEFAULT_ENCODING="UTF8"
+    env_file:
+      - etc/environment.yml
+      - etc/environment.production.yml
+    command: bash -c "while [ ! -f /docker-entrypoin-initdb.d/public.sql ]; do sleep 1; done && /docker-entrypoint.sh"
+
+      #######################################
+      # Solr server
+      #######################################
+      #solr:
+      #  build:
+      #    context: docker/solr/
+      #  volumes:
+      #    - solr:/opt/solr/server/solr/data
+      #  env_file:
+      #    - etc/environment.yml
+      #    - etc/environment.development.yml
+      #  environment:
+      #    - SOLR_STORAGE=/opt/solr/server/solr/data
+      #    - VIRTUAL_HOST=solr.boilerplate.docker
+      #    - VIRTUAL_PORT=8983
+
+      #######################################
+      # Tika server
+      #######################################
+      #tika:
+      #  build:
+      #    context: docker/tika/
+      #  ports:
+      #    - 19998:9998
+
+      #######################################
+      # Elasticsearch
+      #######################################
+      #elasticsearch:
+      #  build:
+      #    context: docker/elasticsearch/
+      #  ports:
+      #    - 19200:9200
+      #    - 19300:9300
+      #  volumes:
+      #    - elasticsearch:/usr/share/elasticsearch/data
+      #  env_file:
+      #    - etc/environment.yml
+      #    - etc/environment.development.yml
+      #  environment:
+      #    - VIRTUAL_HOST=elasticsearch.boilerplate.docker
+      #    - VIRTUAL_PORT=9200
+
+      #######################################
+      # Redis
+      #######################################
+      #redis:
+      #  build:
+      #    context: docker/redis/
+      #  volumes:
+      #    - redis:/data
+      #  env_file:
+      #    - etc/environment.yml
+      #    - etc/environment.development.yml
+
+      #######################################
+      # Memcached
+      #######################################
+      #memcached:
+      #  build:
+      #    context: docker/memcached/
+      #  env_file:
+      #    - etc/environment.yml
+      #    - etc/environment.development.yml
+
+      #######################################
+      # Mail
+      #######################################
+      # Mailhog
+      #mail:
+      #image: mailhog/mailhog
+      #  ports:
+      #    - 8025:8025
+      #environment:
+      #- VIRTUAL_HOST=mail.boilerplate.docker
+    #- VIRTUAL_PORT=8025
+
+  # Mailcatcher
+  #mail:
+  #  image: schickling/mailcatcher
+  #  environment:
+  #    - VIRTUAL_HOST=mail.boilerplate.docker
+  #    - VIRTUAL_PORT=1080
+
+
+  # Mailsandbox
+  #mail:
+  #  image: webdevops/mail-sandbox
+  #  environment:
+  #    - VIRTUAL_HOST=mail.boilerplate.docker
+  #    - VIRTUAL_PORT=80
+
+  #######################################
+  # FTP (vsftpd)
+  #######################################
+  #ftp:
+  #  build:
+  #    context: docker/vsftpd/
+  #  volumes:
+  #    - ./:/application/
+  #  env_file:
+  #    - etc/environment.yml
+  #    - etc/environment.development.yml
+
+  #######################################
+  # Mail
+  #######################################
+  maildev:
+    container_name: "${name}_maildev"
+    image: maildev/maildev:latest
+    restart: always
+    ports:
+      - "${maildev_port}:80" # smtp server
+      - "1025:25"
+    labels:
+      - "traefik.http.services.${name}_mail.loadbalancer.server.port=1025"
+      - "traefik.http.routers.${name}_mail.rule=Host(`mail.${name}.localhost`)"
+
+  #######################################
+  # Traefik
+  #######################################
+  traefik:
+    image: traefik:latest
+    container_name: "${name}_traefik"
+    restart: on-failure
+    command: --api.insecure=true --providers.docker
+    ports:
+      #- '8000:80'
+      - '${traefik_port}:8080' # Dashboard
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+volumes:
+  #postgres_data:
+  #pgadmin:
+  ${name}_postgres:
+    name: ${name}_data # Real ending name
+    external: false
+
+

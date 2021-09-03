@@ -10,14 +10,21 @@
 # Context environment
 
 # TYPO3
-TYPO3_CONTEXT=Production/Docker
+#TYPO3_CONTEXT=Production/Docker
 
 # Symfony
-SYMFONY_ENV=prod
-SYMFONY_DEBUG=0
+#SYMFONY_ENV=prod
+#SYMFONY_DEBUG=0
 
 # CakePHP
-CAKE_ENV=prod
+#CAKE_ENV=prod
 
 # yii
-YII_ENVIRONMENT=Production
+#YII_ENVIRONMENT=Production
+
+#laravel
+#laravel
+APP_NAME=MAMIAS
+APP_ENV=production
+APP_DEBUG=false
+APP_URL=http://mamias.org
